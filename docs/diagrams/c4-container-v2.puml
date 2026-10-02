@@ -1,0 +1,46 @@
+@startuml c4-container-v2
+!include <C4/C4_Container.puml>
+
+LAYOUT_TOP_DOWN()
+skinparam dpi 140
+
+AddRelTag("async", $lineStyle=DashedLine())
+
+title Контейнерная диаграмма маркетплейса — вариант 2
+
+Person(buyer, "Покупатель", "Смотрит ленту и оформляет заказы")
+Person(seller, "Продавец", "Управляет каталогом своих товаров")
+
+System_Boundary(mp, "Маркетплейс") {
+  Container(marketplace, "Marketplace", "Go", "Модули Identity, Catalog, Feed и Orders в одном процессе")
+  ContainerDb(marketplace_db, "Marketplace DB", "PostgreSQL", "Пользователи, товары, лента и заказы")
+
+  Container(payments, "Payments", "Go", "Расчёт суммы и учёт платежа")
+  ContainerDb(payments_db, "Payments DB", "PostgreSQL", "Платежи")
+
+  Container(notifications, "Notifications", "Go", "Уведомления о статусах заказов")
+  ContainerDb(notifications_db, "Notifications DB", "PostgreSQL", "Журнал доставки")
+}
+
+System_Ext(acquirer, "Эквайринг", "Внешний приём оплаты")
+System_Ext(channel, "Канал уведомлений", "Почта и push")
+
+Rel(buyer, marketplace, "Лента и заказы", "HTTPS")
+Rel(seller, marketplace, "Управление товарами", "HTTPS")
+
+Rel(marketplace, payments, "Проведение платежа", "sync, HTTP")
+Rel(marketplace, notifications, "Смена статуса заказа", "async, HTTP", $tags="async")
+
+Rel(payments, acquirer, "Списание", "sync, HTTPS")
+Rel(notifications, channel, "Доставка", "HTTPS")
+
+Rel(marketplace, marketplace_db, "Читает и пишет", "SQL")
+Rel(payments, payments_db, "Читает и пишет", "SQL")
+Rel(notifications, notifications_db, "Читает и пишет", "SQL")
+
+Lay_D(marketplace, marketplace_db)
+Lay_D(payments, payments_db)
+Lay_D(notifications, notifications_db)
+
+SHOW_LEGEND()
+@enduml

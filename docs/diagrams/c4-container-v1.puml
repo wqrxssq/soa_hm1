@@ -1,0 +1,71 @@
+@startuml c4-container-v1
+!include <C4/C4_Container.puml>
+
+LAYOUT_TOP_DOWN()
+skinparam dpi 140
+
+AddRelTag("async", $lineStyle=DashedLine())
+
+title Контейнерная диаграмма маркетплейса — вариант 1
+
+Person(buyer, "Покупатель", "Смотрит ленту и оформляет заказы")
+Person(seller, "Продавец", "Управляет каталогом своих товаров")
+
+System_Boundary(mp, "Маркетплейс") {
+  Container(gateway, "API Gateway", "Go", "Точка входа: маршрутизация и проверка токена")
+
+  Container(identity, "Identity", "Go", "Учётные записи, роли, профили продавцов")
+  Container(catalog, "Catalog", "Go", "Карточки товаров, цена и остаток")
+  Container(feed, "Feed", "Go", "Персональная лента и сигналы ранжирования")
+  Container(orders, "Orders", "Go", "Заказы, снимки цен, статусы. Ведёт оформление")
+  Container(payments, "Payments", "Go", "Расчёт суммы и учёт платежа")
+  Container(notifications, "Notifications", "Go", "Уведомления о статусах заказов")
+
+  ContainerQueue(broker, "Брокер сообщений", "RabbitMQ", "События товаров, покупок и статусов")
+
+  ContainerDb(identity_db, "Identity DB", "PostgreSQL", "Пользователи и профили")
+  ContainerDb(catalog_db, "Catalog DB", "PostgreSQL", "Товары и остатки")
+  ContainerDb(feed_db, "Feed DB", "PostgreSQL", "Проекция ленты и предпочтения")
+  ContainerDb(orders_db, "Orders DB", "PostgreSQL", "Заказы и статусы")
+  ContainerDb(payments_db, "Payments DB", "PostgreSQL", "Платежи")
+  ContainerDb(notifications_db, "Notifications DB", "PostgreSQL", "Журнал доставки")
+}
+
+System_Ext(acquirer, "Эквайринг", "Внешний приём оплаты")
+System_Ext(channel, "Канал уведомлений", "Почта и push")
+
+Rel(buyer, gateway, "Лента и заказы", "HTTPS")
+Rel(seller, gateway, "Управление товарами", "HTTPS")
+
+Rel(gateway, identity, "Токен и профиль", "sync, HTTP")
+Rel(gateway, catalog, "Операции с товарами", "sync, HTTP")
+Rel(gateway, feed, "Лента и просмотры", "sync, HTTP")
+Rel(gateway, orders, "Оформление заказа", "sync, HTTP")
+
+Rel(orders, catalog, "Резерв остатка", "sync, HTTP")
+Rel(orders, payments, "Проведение платежа", "sync, HTTP")
+
+Rel(catalog, broker, "Изменения товаров", "async", $tags="async")
+Rel(orders, broker, "Статус и покупка", "async", $tags="async")
+Rel(broker, feed, "Обновление проекции", "async", $tags="async")
+Rel(broker, notifications, "Смена статуса", "async", $tags="async")
+
+Rel(payments, acquirer, "Списание", "sync, HTTPS")
+Rel(notifications, channel, "Доставка", "HTTPS")
+
+Rel(identity, identity_db, "Читает и пишет", "SQL")
+Rel(catalog, catalog_db, "Читает и пишет", "SQL")
+Rel(feed, feed_db, "Читает и пишет", "SQL")
+Rel(orders, orders_db, "Читает и пишет", "SQL")
+Rel(payments, payments_db, "Читает и пишет", "SQL")
+Rel(notifications, notifications_db, "Читает и пишет", "SQL")
+
+Lay_D(identity, identity_db)
+Lay_D(catalog, catalog_db)
+Lay_D(feed, feed_db)
+Lay_D(orders, orders_db)
+Lay_D(payments, payments_db)
+Lay_D(notifications, notifications_db)
+
+SHOW_LEGEND()
+@enduml
